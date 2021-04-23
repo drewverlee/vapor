@@ -1,9 +1,16 @@
 (ns odoyle-rum-todo.core
   (:require [rum.core :as rum]
             [odoyle.rules :as o]
-            [odoyle.rum :as orum])
-  #?(:cljs (:require-macros [odoyle.rules]
-                            [odoyle.rum])))
+            [odoyle.rum :as orum]
+            [clojure.spec.alpha :as s]))
+
+(s/def ::text string?)
+(s/def ::done boolean?)
+(s/def ::todo (s/keys :req-un [::text ::done]))
+(s/def ::all-todos (s/coll-of ::todo))
+(s/def ::next-id integer?)
+(s/def ::showing #{:all :active :completed})
+(s/def ::upsert-todo integer?)
 
 (defn refresh-all-todos [session]
   (->> (o/query-all session ::get-todo-item)
@@ -37,7 +44,6 @@
            (-> session
                (o/retract id ::text)
                (o/retract id ::done)
-               refresh-all-todos
                o/fire-rules))))
 
 (def rules
@@ -46,12 +52,32 @@
      [:what
       [id ::text text]
       [id ::done done]
-      [::global ::next-id next-id {:then false}]
+      ;; insert event that triggers the update-next-id rule.
+      ;; note that there is nothing special about an "event".
+      ;; it is just a fact that we insert in order to trigger
+      ;; another rule, so we can keep a separation of concerns.
       :then
-      (-> (refresh-all-todos o/*session*)
-          ;; update next-id if necessary
-          (cond-> (>= id next-id)
-                  (o/insert ::global ::next-id (inc id)))
+      (-> o/*session*
+          (o/insert ::event ::upsert-todo id)
+          o/reset!)
+      ;; refresh the list of todos.
+      ;; we use :then-finally because it runs
+      ;; after todos are inserted *and* retracted.
+      ;; :then blocks are only run after insertions.
+      :then-finally
+      (-> o/*session*
+          refresh-all-todos
+          o/reset!)]
+
+     ::update-next-id
+     [:what
+      [::event ::upsert-todo id]
+      [::global ::next-id next-id {:then false}]
+      :when
+      (>= id next-id)
+      :then
+      (-> o/*session*
+          (o/insert ::global ::next-id (inc id))
           o/reset!)]
      
      ::get-all-todos
@@ -179,5 +205,15 @@
                           ::next-id 0})
       o/fire-rules))
 
-(def *session (atom initial-session))
+(defonce *session (atom initial-session))
+
+;; when figwheel reloads this file,
+;; get all the facts from the previous session
+;; and insert them into the new session
+;; so we don't wipe the state clean every time
+(swap! *session
+  (fn [session]
+    (->> (o/query-all session)
+         (reduce o/insert initial-session)
+         o/fire-rules)))
 
