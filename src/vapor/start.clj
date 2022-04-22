@@ -1,5 +1,6 @@
-(ns odoyle-rum-todo.start
+(ns vapor.start
   (:require [ring.adapter.jetty :refer [run-jetty]]
+            [vapor.giant-bomb-api.core :as giant-bomb-api]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.content-type :refer [wrap-content-type]]
@@ -12,24 +13,25 @@
             [clojure.data.codec.base64 :as base64]
             [rum.core :as rum]
             [odoyle.rum :as orum]
-            [odoyle-rum-todo.core :as c])
+            [vapor.core :as v])
   (:gen-class))
 
 (def port 3000)
 
 (defn page [initial-state]
-  (binding [;; this binding causes the new matches triggered by `insert-all-todos`
+  (binding [;; this binding causes the new matches triggered by `insert-all-games`
             ;; to be stored locally, so they don't affect other users
             ;; that happen to be requesting this route at the same time
             orum/*matches* (volatile! {})]
     ;; if there are any todos in the user's ring session,
     ;; insert them into the o'doyle session.
     ;; we are only doing this for side-effects.
-    (c/insert-all-todos c/initial-session (:all-todos initial-state))
+    (v/insert-all-games v/initial-session (or (:games initial-state) []))
+
     ;; render the html
     (-> "template.html" io/resource slurp
-        (str/replace "{{content}}" (rum/render-html (c/app-root nil)))
-        ;; save the todos in a hidden div that the client can read when it loads
+        (str/replace "{{content}}" (rum/render-html (v/app-root nil)))
+        ;; save the games in a hidden div that the client can read when it loads
         ;; we are using base64 to prevent breakage (i.e. if a todo contains angle brackets)
         (str/replace "{{initial-state}}" (-> (pr-str initial-state)
                                              (.getBytes "UTF-8")
@@ -44,14 +46,25 @@
    :headers {"Content-Type" "text/html"}
    :body (page (:session request))})
 
-(defmethod handler [:post "/all-todos"]
+(defmethod handler [:post "/query"]
   [request]
-  {:status 200
-   :session (assoc (:session request) :all-todos
-                   (edn/read-string (body-string request)))})
+  (let [query (body-string request)
+        games (->> query
+                   giant-bomb-api/query->games
+                   ;;a bit of data wrangling and mocking
+                   (map (fn [{{medium_url :medium_url} :image
+                             name :name
+                             id :id}]
+                          {:id id
+                           :name name
+                           :medium_url medium_url
+                           :price 25})))]
+    {:status 200
+     :headers {"Content-Type" "application/edn"}
+     :body (pr-str games)}))
 
 (defmethod handler :default
-  [request]
+  [_]
   (not-found "Page not found"))
 
 (defn run-server [handler-fn]
@@ -65,4 +78,3 @@
 
 (defn -main [& args]
   (run-server handler))
-

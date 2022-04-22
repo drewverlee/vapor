@@ -1,7 +1,9 @@
 (require
   '[figwheel.main :as figwheel]
-  '[odoyle-rum-todo.start-dev :refer [-main]])
+  '[vapor.start-dev :refer [-main]])
 
-(-main)
-(figwheel/-main "--build" "dev")
+(future
+  (figwheel/-main "--build" "dev"))
 
+(future
+ (-main))

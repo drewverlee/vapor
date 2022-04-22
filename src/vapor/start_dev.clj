@@ -1,6 +1,6 @@
-(ns odoyle-rum-todo.start-dev
+(ns vapor.start-dev
   (:require [clojure.spec.test.alpha :as st]
-            [odoyle-rum-todo.start :as start]
+            [vapor.start :as start]
             [ring.middleware.file :refer [wrap-file]]
             [clojure.java.io :as io]))
 

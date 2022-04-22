@@ -2,7 +2,7 @@ classes/*
 target/*
 resources/public/main.js
 resources/public/main.out
+resources/secrets.edn
 figwheel_server.log
 .*
 !.gitignore
-

@@ -1,6 +1,6 @@
-(defproject odoyle-rum-todo "0.1.0-SNAPSHOT"
-  :aot [odoyle-rum-todo.start]
-  :main odoyle-rum-todo.start
+(defproject vapor "0.1.0-SNAPSHOT"
+  :aot [vapor.start]
+  :main vapor.start
   :exclusions [cljsjs/react
                cljsjs/react-dom
                sablono

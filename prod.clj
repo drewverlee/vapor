@@ -53,7 +53,7 @@
 
 (println "Building" out-file)
 (delete-children-recursively! (io/file out-dir))
-(api/build "src" {:main          'odoyle-rum-todo.start
+(api/build "src" {:main          'vapor.start
                   :optimizations :advanced
                   :output-to     out-file
                   :output-dir    out-dir})
